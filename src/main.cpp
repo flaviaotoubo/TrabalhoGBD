@@ -10,12 +10,13 @@ int main() {
   BufferPool bp;
   FILE *file;
 
-  file = fopen("txt/R62500.txt", "r");
+  cria_buffer(bp, 5);
 
-  aloca_pagina(bp);
-  le_pagina(bp, file, 0);
-  // mostra_paginas(bp);
-  // cout << "size: " << bp.frames.size() << endl;
+  file = fopen("txt/R62500.txt", "r+");
+
+  aloca_pagina(bp,file,0);
+  grava_pagina(bp,file,0);
+  mostra_paginas(bp);
 
   return 0;
 }
