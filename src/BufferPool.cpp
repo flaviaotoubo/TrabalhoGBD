@@ -2,66 +2,118 @@
 #include <vector>
 #include "Page.cpp"
 #include <cstdio>
+#include <cstdlib>
 #include <iostream>
 
 struct Frame {
-  Page pagina;
+  Page* pagina;
   int pinCount;
   int dirtyBit;
 };
 
 struct BufferPool {
-  vector<Frame> frames;
+  int size;			// Total de Frames
+  int next;			// Indica proximo Frame vazio (inicio)
+  Frame* frames;		// array de frames
+  list<int> politicaSubs; // lista com indices de frame, em ordem decrescente de tempos
+  // Usando: LRU
 };
 
-void aloca_pagina(BufferPool& bp){//, Identificador N, TamanhoBuffer B) {
-  
-  bp.frames.resize(bp.frames.size());
- 
+void cria_buffer(BufferPool& bp, int size) {
+
+  bp.frames = (Frame*) malloc (size*sizeof(Frame));
+  bp.size = size;
+  bp.next = 0;
 }
 
-void le_pagina(BufferPool& bp, FILE* file, int pageId) {
+Page* le_pagina(BufferPool& bp, FILE* file, int pageId) {
 
   char dados1[11];   char dados2[11];
-  int tamanho_pagina = CURRENT_SIZE - 1;
+  int tamanho_pagina = CURRENT_SIZE;
   int pular_paginas = (pageId) * 23 * tamanho_pagina;
 
   fseek(file, pular_paginas, SEEK_SET);
-  Page pagina = cria_pagina();
-  pagina.id = pageId;
+
+  Page* pagina = cria_pagina();
+  pagina->id = pageId;
 
   for (int i = 0; i < CURRENT_SIZE; ++i) {
 
-    fscanf(file, "%10s", dados1);
+    fgets(dados1, 11, file);
     fseek(file, 1, SEEK_CUR);
 
-    fscanf(file, "%10s", dados2);
+    fgets(dados2, 11, file);
     fseek(file, 2, SEEK_CUR);
 
     aloca_registro(pagina, dados1, dados2);
   }
   
-  Frame f;
-  f.pagina = pagina;
-  f.pinCount = f.dirtyBit = 0;
-  bp.frames.push_back(f);
-
+  return pagina;
 }
 
-void mostra_paginas(BufferPool& bp) {
+void aloca_pagina(BufferPool& bp, FILE* file, int pageId) {
+  
+  Page* p = le_pagina(bp, file, pageId);
 
-  unsigned int i;
-  int j;
+  if (bp.next < bp.size ) {	// Se o Buffer nao esta cheio ainda 
 
-  for (i = 0; i < bp.frames.size(); ++i) {
+    bp.frames[bp.next].pinCount = bp.frames[bp.next].dirtyBit = 0;
+    bp.frames[bp.next].pagina = p;
+
+    bp.politicaSubs.push_back(bp.next);
+    bp.next++;
+
+  }
+
+  else { // se está cheio -> Politica de Substituicao de Pagina:
+
+
+    // POLITICA LRU:
+    int libera = bp.politicaSubs.front();
+    bp.politicaSubs.pop_front();
+
+    bp.frames[libera].pagina = p;
+    bp.politicaSubs.push_back(libera);
+  }    
+}
+
+void mostra_paginas(BufferPool bp) {
+
+  int i,j;
+  
+  for (i = 0; i < bp.next; ++i) {
+
     for (j = 0; j < CURRENT_SIZE; ++j) {
 
-  // for (i = 0; i < 1; ++i) {
-  //   for (j = 0; j < 1; ++j) {
+      printf("%s ; %s<>\n", bp.frames[i].pagina->registros.at(j).atributo1, bp.frames[i].pagina->registros.at(j).atributo2);
 
-      printf("%s, %s\n", bp.frames.at(i).pagina.registros.at(j).atributo1, bp.frames.at(i).pagina.registros.at(j).atributo1);
-
-      // printf("%s, %s\n", bp.frames.at(i).pagina.registros.at(j).atributo1, bp.frames.at(i).pagina.registros.at(j).atributo1);
     }
   }
+}
+
+void grava_pagina(BufferPool& bp, FILE* file, int pageId) {
+
+  for (int i = 0; i < bp.next; ++i) {
+
+    if (bp.frames[i].pagina->id == pageId) {
+
+      fseek(file, pageId * 23 * CURRENT_SIZE,SEEK_SET);
+
+      for (int j = 0; j < CURRENT_SIZE; ++j) {
+	char *a = bp.frames[i].pagina->registros.at(j).atributo1;
+	fputs(a, file); fflush(file);	
+	fputc(',', file); fflush(file);
+
+	char *b = bp.frames[i].pagina->registros.at(j).atributo2;
+	fputs(b, file); fflush(file);
+	fputs("\r\n", file); fflush(file);
+
+	
+      }
+
+      break;
+    }
+
+  }
+
 }
