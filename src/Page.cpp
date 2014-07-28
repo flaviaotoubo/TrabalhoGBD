@@ -5,13 +5,13 @@
 #include <cstring>
 #include <cstdlib>
 
-#define MAX_SIZE 10240		// 10 KB = 10240 Bytes = 512 registros/pagina
+#define MAX_SIZE 8192		// 8 KB = 8192 Bytes = 409 registros/pagina
 
 using namespace std;
 
 // VARIAVEIS GLOBAIS
 int g_id = 0;
-int CURRENT_SIZE = 512; //reg/ pag; controle do tamanho atual da pagina
+int CURRENT_SIZE = 409;; //reg/ pag; controle do tamanho atual da pagina
 
 struct Slot {			// 8 Bytes
   int pos;			// 4 Bytes
